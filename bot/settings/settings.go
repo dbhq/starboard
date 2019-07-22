@@ -3,7 +3,7 @@ package settings
 import (
 	"sync"
 
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"

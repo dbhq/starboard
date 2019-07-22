@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 )
 
 func serialize(v interface{}) string {

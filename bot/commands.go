@@ -13,12 +13,12 @@ import (
 
 	"github.com/go-pg/pg"
 
-	"github.com/xdimgg/starboard/bot/tables"
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/tables"
+	"github.com/dbhq/starboard/bot/util"
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/xdimgg/starboard/bot/commandler"
+	"github.com/dbhq/starboard/bot/commandler"
 )
 
 const (

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/xdimgg/starboard/bot/localization"
+	"github.com/dbhq/starboard/bot/localization"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 )
 
 // Commandler represents a command handler

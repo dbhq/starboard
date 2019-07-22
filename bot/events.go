@@ -7,10 +7,10 @@ import (
 
 	"github.com/go-pg/pg"
 
-	"github.com/xdimgg/starboard/bot/tables"
+	"github.com/dbhq/starboard/bot/tables"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 )
 
 func getIconURL(g *discordgo.Guild) string {
@@ -92,9 +92,7 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) (e
 		return
 	}
 
-	if err := b.cacheMessage(m.Message); err != nil {
-		b.reportError(err, map[string]string{"event": "MESSAGE_CREATE"})
-	}
+	b.cacheMessage(m.Message)
 
 	probability := b.Settings.Get(m.GuildID, settingRandomStarProbability).(float64)
 	if probability == 0 {
@@ -127,26 +125,22 @@ func (b *Bot) messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) (e
 
 	key := "messages:" + m.ID
 
-	if b.Redis.Exists(key).Val() == 1 {
+	if x, found := c.Get(key); found {
+		data := x.(*tables.Message)
 		if m.EditedTimestamp != "" {
-			err = b.Redis.HMSet(key, map[string]interface{}{
-				"content": util.GetContent(m.Message),
-				"image":   util.GetImage(m.Message),
-			}).Err()
+			data.Content = util.GetContent(m.Message)
+			data.Image = util.GetImage(m.Message)
+
+			b.Cache.Set(key, data, expiryTime)
 		} else if image := util.GetImage(m.Message); image != "" {
-			err = b.Redis.HSet(key, "image", image).Err()
+			data.Image = util.GetImage(m.Message)
+
+			b.Cache.Set(key, data, expiryTime)
 		} else {
 			return
 		}
 
-		if err != nil {
-			return
-		}
-
-		err = b.Redis.Expire(key, expiryTime).Err()
-		if err != nil {
-			return
-		}
+		return
 	}
 
 	image := util.GetImage(m.Message)
@@ -326,10 +320,12 @@ func (b *Bot) messageReactionAdd(s *discordgo.Session, m *discordgo.MessageReact
 				if err == nil {
 					key := "warned:" + m.UserID
 
-					if b.Redis.Exists(key).Val() == 0 && b.Settings.GetBool(m.GuildID, settingSelfStarWarning) {
-						b.Redis.Set(key, "", time.Hour)
-						l := b.Locales.Language(b.Settings.GetString(msg.GuildID, settingLanguage))
-						s.ChannelMessageSend(m.ChannelID, l("starboard.self_star.warning", "<@"+m.UserID+">"))
+					if x, found := b.Cache.Get(key); found {
+						if b.Settings.GetBool(m.GuildID, settingSelfStarWarning) {
+							b.Cache.Set(key, "", time.Hour)
+							l := b.Locales.Language(b.Settings.GetString(msg.GuildID, settingLanguage))
+							s.ChannelMessageSend(m.ChannelID, l("starboard.self_star.warning", "<@"+m.UserID+">"))
+						}
 					}
 				}
 			}

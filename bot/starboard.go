@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/starboard/bot/tables"
 	"github.com/go-pg/pg"
 	"github.com/jinzhu/inflection"
-	"github.com/xdimgg/starboard/bot/tables"
 )
 
 const expiryTime = time.Minute * 20
@@ -120,14 +120,14 @@ func (b *Bot) generateEmbed(msg *tables.Message, count int) (embed *discordgo.Me
 
 func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.Message, err error) {
 	key := "messages:" + id
-	res := b.Redis.HMGet(key, "author_id", "guild_id", "content", "image")
-	if res.Err() != nil {
-		return nil, res.Err()
+	res, found := c.Get(key)
+	if !found {
+		return nil, err
 	}
 
-	data := res.Val()
+	data := res.(*tables.Message)
 
-	if data[0] == nil {
+	if res != "" {
 		m, err := s.ChannelMessage(channel, id)
 		if err != nil {
 			return nil, err
@@ -208,34 +208,28 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 	} else {
 		msg = &tables.Message{
 			ID:        id,
-			AuthorID:  data[0].(string),
+			AuthorID:  data.AuthorID,
 			ChannelID: channel,
-			GuildID:   data[1].(string),
+			GuildID:   data.GuildID,
 
-			Content: data[2].(string),
-			Image:   data[3].(string),
+			Content: data.Content,
+			Image: data.Image,
 		}
 	}
 
 	return
 }
 
-func (b *Bot) cacheMessage(m *discordgo.Message) (err error) {
+func (b *Bot) cacheMessage(m *discordgo.Message) {
 	key := "messages:" + m.ID
 
-	err = b.Redis.HMSet(key, map[string]interface{}{
-		"author_id":  m.Author.ID,
-		"channel_id": m.ChannelID,
-		"guild_id":   m.GuildID,
-
-		"content": util.GetContent(m),
-		"image":   util.GetImage(m),
-	}).Err()
-	if err != nil {
-		return
-	}
-
-	return b.Redis.Expire(key, expiryTime).Err()
+	b.Cache.Set(key, &tables.Message{
+		AuthorID: m.Author.ID,
+		ChannelID: m.ChannelID,
+		GuildID: m.GuildID,
+		Content: util.GetContent(m),
+		Image: util.GetImage(m),
+	}, expiryTime)
 }
 
 func (b *Bot) createMessage(s *discordgo.Session, m *tables.Message) (err error) {

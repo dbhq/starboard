@@ -13,18 +13,17 @@ import (
 
 	"github.com/GitbookIO/syncgroup"
 
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 
 	"github.com/bwmarrin/discordgo"
-	raven "github.com/getsentry/raven-go"
+	"github.com/dbhq/starboard/bot/commandler"
+	"github.com/dbhq/starboard/bot/localization"
+	"github.com/dbhq/starboard/bot/settings"
+	"github.com/dbhq/starboard/bot/tables"
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
-	"github.com/go-redis/redis"
 	"github.com/jonas747/dshardmanager"
-	"github.com/xdimgg/starboard/bot/commandler"
-	"github.com/xdimgg/starboard/bot/localization"
-	"github.com/xdimgg/starboard/bot/settings"
-	"github.com/xdimgg/starboard/bot/tables"
+	"github.com/patrickmn/go-cache"
 )
 
 const (
@@ -50,8 +49,7 @@ const starEmoji = "⭐"
 // Bot represents a starboard instance
 type Bot struct {
 	PG        *pg.DB
-	Redis     *redis.Client
-	Sentry    *raven.Client
+	Cache     *cache.Cache
 	Manager   *dshardmanager.Manager
 	Locales   *localization.Locales
 	Settings  *settings.Settings
@@ -76,7 +74,6 @@ type Options struct {
 	Locales      string
 	OwnerID      string
 	Mode         string
-	SentryDSN    string
 	DiscordLists []DiscordList
 
 	Guild            string
@@ -85,20 +82,15 @@ type Options struct {
 }
 
 // New creates a starboard instance
-func New(opts *Options, pgOpts *pg.Options, redisOpts *redis.Options) (err error) {
+func New(opts *Options, pgOpts *pg.Options) (err error) {
 	b := &Bot{
 		PG:        pg.Connect(pgOpts),
-		Redis:     redis.NewClient(redisOpts),
+		Cache:     cache.New(time.Minute*20, time.Hour),
 		StartTime: time.Now(),
 
 		expectedGuilds: make(map[*discordgo.Session]int),
 		mutexGroup:     syncgroup.NewMutexGroup(),
 		opts:           opts,
-	}
-
-	b.Sentry, err = raven.New(opts.SentryDSN)
-	if err != nil {
-		return
 	}
 
 	b.Locales, err = localization.New(b.opts.Locales)
@@ -158,51 +150,37 @@ func New(opts *Options, pgOpts *pg.Options, redisOpts *redis.Options) (err error
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 			tags := map[string]string{"event": "MESSAGE_CREATE"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageCreate(s, m), tags)
-			}, tags)
+			b.reportError(b.messageCreate(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageUpdate) {
 			tags := map[string]string{"event": "MESSAGE_UPDATE"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageUpdate(s, m), tags)
-			}, tags)
+			b.reportError(b.messageUpdate(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageDelete) {
 			tags := map[string]string{"event": "MESSAGE_DELETE"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageDelete(s, m), tags)
-			}, tags)
+			b.reportError(b.messageDelete(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageDeleteBulk) {
 			tags := map[string]string{"event": "MESSAGE_DELETE_BULK"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageDeleteBulk(s, m), tags)
-			}, tags)
+			b.reportError(b.messageDeleteBulk(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 			tags := map[string]string{"event": "MESSAGE_REACTION_ADD"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageReactionAdd(s, m), tags)
-			}, tags)
+			b.reportError(b.messageReactionAdd(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
 			tags := map[string]string{"event": "MESSAGE_REACTION_REMOVE"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageReactionRemove(s, m), tags)
-			}, tags)
+			b.reportError(b.messageReactionRemove(s, m), tags)
 		})
 
 		s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageReactionRemoveAll) {
 			tags := map[string]string{"event": "MESSAGE_REACTION_REMOVE_ALL"}
-			b.Sentry.CapturePanic(func() {
-				b.reportError(b.messageReactionRemoveAll(s, m), tags)
-			}, tags)
+			b.reportError(b.messageReactionRemoveAll(s, m), tags)
 		})
 
 		c := commandler.New(s, b.Locales, b.Settings)
@@ -312,11 +290,6 @@ func (b *Bot) createTables(tables ...interface{}) (err error) {
 
 func (b *Bot) reportError(err error, tags map[string]string) {
 	if err == nil {
-		return
-	}
-
-	if b.prod() {
-		b.Sentry.CaptureError(err, tags)
 		return
 	}
 

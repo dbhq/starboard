@@ -1,80 +1,41 @@
 package main
 
 import (
-	"encoding/json"
-	"os"
-	"strconv"
-	"time"
+	"fmt"
 
-	"github.com/xdimgg/starboard/bot"
-
-	"github.com/go-pg/pg"
-
-	"github.com/go-redis/redis"
+	"github.com/BurntSushi/toml"
+	"github.com/dbhq/starboard/bot"
 )
 
-func getenvInt(key string) int {
-	if n, err := strconv.Atoi(os.Getenv(key)); err == nil {
-		return n
-	}
+var (
+	c *config
+)
 
-	return 0
+type config struct {
+	Prefix           string `toml:"prefix"`
+	Token            string `toml:"token"`
+	Locales          string `toml:"locales"`
+	OwnerID          string `toml:"owner_id"`
+	Guild            string `toml:"guild"`
+	GuildLogChannel  string `toml:"guild_log_channel"`
+	MemberLogChannel string `toml:"member_log_channel"`
 }
 
 func main() {
-	if os.Getenv("MODE") == "prod" {
-		time.Sleep(time.Second * 10)
+	if _, err := toml.DecodeFile("./starboard.config.toml", &c); err != nil {
+		fmt.Println("error loading starboard config,", err)
+		return
 	}
 
 	panic(bot.New(
 		&bot.Options{
-			Prefix:    os.Getenv("BOT_PREFIX"),
-			Token:     os.Getenv("BOT_TOKEN"),
-			Locales:   os.Getenv("BOT_LOCALES"),
-			OwnerID:   os.Getenv("BOT_OWNER_ID"),
-			Mode:      os.Getenv("MODE"),
-			SentryDSN: os.Getenv("SENTRY_DSN"),
-			DiscordLists: []bot.DiscordList{
-				{
-					Authorization: os.Getenv("DBL_KEY"),
-					URL: func(id string) string {
-						return "https://discordbots.org/api/bots/" + id + "/stats"
-					},
-					Serialize: func(shardCount, guildCount int) ([]byte, error) {
-						return json.Marshal(map[string]int{
-							"shard_count":  shardCount,
-							"server_count": guildCount,
-						})
-					},
-				},
-				{
-					Authorization: os.Getenv("GG_BOTS_KEY"),
-					URL: func(id string) string {
-						return "https://discord.bots.gg/api/v1/bots/" + id + "/stats"
-					},
-					Serialize: func(shardCount, guildCount int) ([]byte, error) {
-						return json.Marshal(map[string]int{
-							"shardCount": shardCount,
-							"guildCount": guildCount,
-						})
-					},
-				},
-			},
-			Guild:            os.Getenv("BOT_GUILD"),
-			GuildLogChannel:  os.Getenv("BOT_GUILD_LOG_CHANNEL"),
-			MemberLogChannel: os.Getenv("BOT_MEMBER_LOG_CHANNEL"),
-		},
-		&pg.Options{
-			Addr:     os.Getenv("POSTGRES_ADDR"),
-			Database: os.Getenv("POSTGRES_DB"),
-			Password: os.Getenv("POSTGRES_PASSWORD"),
-			User:     os.Getenv("POSTGRES_USER"),
-			PoolSize: getenvInt("POSTGRES_POOL_SIZE"),
-		},
-		&redis.Options{
-			Addr:     os.Getenv("REDIS_ADDR"),
-			Password: os.Getenv("REDIS_PASSWORD"),
-			PoolSize: getenvInt("REDIS_POOL_SIZE"),
+			Prefix:           c.Prefix,
+			Token:            c.Token,
+			Locales:          c.Locales,
+			OwnerID:          c.OwnerID,
+			Guild:            c.Guild,
+			GuildLogChannel:  c.GuildLogChannel,
+			MemberLogChannel: c.MemberLogChannel,
 		},
 	))
 }

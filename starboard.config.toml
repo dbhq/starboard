@@ -1,0 +1,22 @@
+# Starboard config
+
+# Command prefix
+prefix = "*"
+
+# Bot token
+token = ""
+
+# Locales directory
+locales = ""
+
+# Bot Owner's ID
+owner_id = ""
+
+# Debug Guild ID
+guild = ""
+
+# Guild join/part log channel ID
+guild_log_channel = ""
+
+# Member join/part log channel ID
+member_log_channel = ""

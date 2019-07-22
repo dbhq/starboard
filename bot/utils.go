@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/xdimgg/starboard/bot/util"
+	"github.com/dbhq/starboard/bot/util"
 )
 
 func findDefaultChannel(key string, state *discordgo.State, guild *discordgo.Guild) *discordgo.Channel {
