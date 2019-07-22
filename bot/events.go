@@ -125,7 +125,7 @@ func (b *Bot) messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) (e
 
 	key := "messages:" + m.ID
 
-	if x, found := c.Get(key); found {
+	if x, found := b.Cache.Get(key); found {
 		data := x.(*tables.Message)
 		if m.EditedTimestamp != "" {
 			data.Content = util.GetContent(m.Message)

@@ -120,7 +120,7 @@ func (b *Bot) generateEmbed(msg *tables.Message, count int) (embed *discordgo.Me
 
 func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.Message, err error) {
 	key := "messages:" + id
-	res, found := c.Get(key)
+	res, found := b.Cache.Get(key)
 	if !found {
 		return nil, err
 	}
@@ -172,11 +172,10 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 				return nil, err
 			}
 
-			after := ""
 			reactions := make([]tables.Reaction, 0)
 
 			for len(reactions) < r.Count {
-				users, err := s.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100, "", after)
+				users, err := s.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100)
 				if err != nil {
 					return nil, err
 				}
@@ -187,10 +186,6 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 						UserID:    u.ID,
 						MessageID: m.ID,
 					})
-				}
-
-				if len(users) != 0 {
-					after = users[len(users)-1].ID
 				}
 			}
 
