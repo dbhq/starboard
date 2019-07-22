@@ -15,7 +15,7 @@ import (
 
 	"github.com/dbhq/starboard/bot/util"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/discordgo"
 	"github.com/dbhq/starboard/bot/commandler"
 	"github.com/dbhq/starboard/bot/localization"
 	"github.com/dbhq/starboard/bot/settings"

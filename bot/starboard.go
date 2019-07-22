@@ -7,7 +7,7 @@ import (
 
 	"github.com/dbhq/starboard/bot/util"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/discordgo"
 	"github.com/dbhq/starboard/bot/tables"
 	"github.com/go-pg/pg"
 	"github.com/jinzhu/inflection"
@@ -63,8 +63,8 @@ func (b *Bot) generateEmbed(msg *tables.Message, count int) (embed *discordgo.Me
 
 	embed = &discordgo.MessageEmbed{
 		Author: &discordgo.MessageEmbedAuthor{
-			Name: s("message.content"),
-			URL:  "https://discordapp.com/channels/" + msg.GuildID + "/" + msg.ChannelID + "/" + msg.ID,
+			Name: msg.Username,
+			URL:  msg.Avatar,
 		},
 		Color:       gray,
 		Description: msg.Content,
@@ -76,7 +76,7 @@ func (b *Bot) generateEmbed(msg *tables.Message, count int) (embed *discordgo.Me
 			},
 			{
 				Name:   s("message.channel"),
-				Value:  "<#" + msg.ChannelID + ">",
+				Value:  fmt.Sprintf("<#%s> [(Jump)](https://discordapp.com/channels/%s/%s/%s)", msg.ChannelID, msg.GuildID, msg.ChannelID, msg.ID),
 				Inline: true,
 			},
 		},
@@ -125,9 +125,9 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 		return nil, err
 	}
 
-	data := res.(*tables.Message)
-
 	if res != "" {
+		data := res.(*tables.Message)
+
 		m, err := s.ChannelMessage(channel, id)
 		if err != nil {
 			return nil, err
@@ -141,6 +141,8 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 		msg = &tables.Message{
 			ID:        id,
 			AuthorID:  m.Author.ID,
+			Username: m.Author.Username,
+			Avatar: m.Author.AvatarURL(""),
 			ChannelID: m.ChannelID,
 			GuildID:   c.GuildID,
 
@@ -172,10 +174,11 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 				return nil, err
 			}
 
+			after := ""
 			reactions := make([]tables.Reaction, 0)
 
 			for len(reactions) < r.Count {
-				users, err := s.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100)
+				users, err := s.MessageReactions(m.ChannelID, m.ID, r.Emoji.APIName(), 100, "", after)
 				if err != nil {
 					return nil, err
 				}
@@ -186,6 +189,10 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 						UserID:    u.ID,
 						MessageID: m.ID,
 					})
+				}
+
+				if len(users) != 0 {
+					after = users[len(users)-1].ID
 				}
 			}
 
@@ -201,9 +208,13 @@ func (b *Bot) getMessage(s *discordgo.Session, id, channel string) (msg *tables.
 
 		go b.cacheMessage(m)
 	} else {
+		data := res.(*tables.Message)
+
 		msg = &tables.Message{
 			ID:        id,
 			AuthorID:  data.AuthorID,
+			Username: data.Username,
+			Avatar: data.Avatar,
 			ChannelID: channel,
 			GuildID:   data.GuildID,
 
@@ -220,6 +231,8 @@ func (b *Bot) cacheMessage(m *discordgo.Message) {
 
 	b.Cache.Set(key, &tables.Message{
 		AuthorID: m.Author.ID,
+		Username: m.Author.Username,
+		Avatar: m.Author.AvatarURL(""),
 		ChannelID: m.ChannelID,
 		GuildID: m.GuildID,
 		Content: util.GetContent(m),

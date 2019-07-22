@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/discordgo"
 )
 
 // Languages maps ISO codes to their native names

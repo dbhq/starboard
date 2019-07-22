@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/discordgo"
 )
 
 var mdReplacer = strings.NewReplacer(

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/dbhq/discordgo"
 )
 
 // Context represents the context of where a command was called

@@ -4,6 +4,8 @@ package tables
 type Message struct {
 	ID        string `sql:",pk"`
 	AuthorID  string
+	Username  string
+	Avatar    string
 	ChannelID string
 	GuildID   string
 	SentID    string
